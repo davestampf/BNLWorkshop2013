@@ -1,0 +1,202 @@
+        -:    0:Source:main.c
+        -:    0:Graph:main.gcno
+        -:    0:Data:main.gcda
+        -:    0:Runs:1
+        -:    0:Programs:1
+        -:    1:// 2 dimensional powder diffraction OPTIMIZED WITH LINEAR INDEXING
+        -:    2:
+        -:    3:#include <stdio.h>
+        -:    4:#include <stdlib.h>
+        -:    5:#include <math.h>
+        -:    6:#include <time.h>
+        -:    7:#include <complex.h>
+        -:    8:
+        1:    9:int main()
+        -:   10:{
+        -:   11:    FILE *fp;  // pointer to the file to write the results
+        -:   12:    FILE *coords;   //pointer to the file that contains atomic coordinates
+        -:   13:    FILE *angles;
+        1:   14:    double lambda = 1.0/10000000000;   // wavelength of illumination
+        1:   15:    const double PI = 3.14159265;
+        -:   16:    time_t start,stop;
+        -:   17:    double diff;
+        -:   18:
+        -:   19:    int j;
+        -:   20:    int i;
+        -:   21:    int k;
+        -:   22:    int a;
+        -:   23:    int b;
+        1:   24:    double complex temp = 0.0;
+        -:   25:
+        1:   26:    int M = 736;        //no of atoms
+        -:   27:
+        1:   28:    int no_rot = 10;                  // how many rotations of the crystal will we consider to find the average intensity
+        -:   29:
+        -:   30:    double *x,*y,*z,*alpha_x,*alpha_z,*alpha_y,*detx,*dety;
+        1:   31:    x = (double*)calloc(M, sizeof(double));    // x coordinates of the atoms
+        1:   32:    y = (double*)calloc(M, sizeof(double));
+        1:   33:    z = (double*)calloc(M, sizeof(double));
+        -:   34:
+        1:   35:    double f = 1.0;                                   // atomic scattering factor--1 for constant
+        1:   36:    double D = 0.2/3;                                    // sample to detector distance
+        -:   37:
+        1:   38:    int pixel_n = 360;                                  // at how many points we will compute the diffracted intensity
+        -:   39:
+        1:   40:    alpha_x = (double*)calloc(no_rot,sizeof(double));  // sample rotation angle around local x axis
+        1:   41:    alpha_z = (double*)calloc(no_rot,sizeof(double));
+        1:   42:    alpha_y = (double*)calloc(no_rot,sizeof(double));
+        -:   43:
+        -:   44:    double k_i[3];                                     // incoming wave vector
+        1:   45:    detx = (double*)calloc(pixel_n,sizeof(double));
+        1:   46:    dety = (double*)calloc(pixel_n,sizeof(double));
+        -:   47:    int o,p;
+        -:   48:
+        -:   49: double *Qx,*Qy,*Qz;
+        -:   50: 
+        1:   51:    Qx = (double*)calloc(pixel_n*pixel_n, sizeof(double));
+        1:   52:    Qy = (double*)calloc(pixel_n*pixel_n, sizeof(double));
+        1:   53:    Qz = (double*)calloc(pixel_n*pixel_n, sizeof(double));
+        -:   54:
+        -:   55:    
+        -:   56:    double SL[9];
+        -:   57:    double *U_L,*V_L,*W_L;
+        1:   58:    U_L = (double*)calloc(M,sizeof(double));
+        1:   59:    V_L = (double*)calloc(M,sizeof(double));
+        1:   60:    W_L = (double*)calloc(M,sizeof(double));
+        -:   61:
+        -:   62:    double *Int_2D;
+        1:   63:    Int_2D = (double*)calloc(pixel_n*pixel_n, sizeof(double)); 
+        -:   64:    
+        1:   65:    double complex Amp = 0;
+        -:   66:
+        1:   67:    time(&start);
+        -:   68:
+        1:   69:   angles = fopen("100randomAngles.txt","r+");
+        1:   70:   if(angles == NULL) {
+    #####:   71:   	printf("Angle File can not be opened\n");
+    #####:   72:   	getchar();
+    #####:   73:   	exit(0);
+        -:   74:   }
+       11:   75:   for (i=0; i<no_rot; i++){
+       10:   76:      fscanf(angles,"%lf%lf%lf", &alpha_x[i], &alpha_y[i], &alpha_z[i]);
+        -:   77:   }
+        1:   78:   fclose(angles);
+        -:   79:
+        1:   80:  coords = fopen("736fccSph.txt","r+");
+        -:   81:
+        1:   82:  if(coords == NULL) {
+    #####:   83:    printf("File can not be opened\n");
+    #####:   84:    getchar();
+    #####:   85:    exit(0);
+        -:   86:  }
+        -:   87:
+      737:   88:  for (i=0; i<M; i++){
+      736:   89:    fscanf(coords,"%lf%lf%lf", &x[i], &y[i], &z[i]);
+        -:   90:  }
+        1:   91:  fclose(coords);
+        -:   92:
+        1:   93:    k_i[0]=1/lambda*0;
+        1:   94:    k_i[1]=1/lambda*0;
+        1:   95:    k_i[2]=1/lambda*1;
+        -:   96:
+      361:   97:        for (o=0; o<pixel_n; o++)
+        -:   98:    {
+        -:   99:
+      360:  100:        detx[o] = -0.2 + o*(0.2-(-0.2))/(pixel_n-1);
+      360:  101:        dety[o] = -0.2 + o*(0.2-(-0.2))/(pixel_n-1);
+        -:  102:
+        -:  103:    }
+        -:  104:
+        -:  105: // LINEAR ARRAY ASSIGNING VALUES FOR 3 COMPONENTS OF Q VECTOR
+        -:  106:
+      361:  107:     for (o=0; o<pixel_n; o++)
+        -:  108:     {
+   129960:  109:         for(p=0; p<pixel_n; p++)
+        -:  110:         {
+        -:  111:
+   129600:  112:             Qx[o*pixel_n+p] = detx[p]/lambda/sqrt(detx[p]*detx[p] + dety[o]*dety[o] + D*D) - k_i[0];
+   129600:  113:             Qy[o*pixel_n+p] = dety[o]/lambda/sqrt(detx[p]*detx[p] + dety[o]*dety[o] + D*D) - k_i[1];
+   129600:  114:             Qz[o*pixel_n+p] = D/lambda/sqrt(detx[p]*detx[p] + dety[o]*dety[o] + D*D) - k_i[2];
+        -:  115:                  
+        -:  116:          }
+        -:  117:      }
+        -:  118:
+        -:  119:
+       11:  120:   for (k=0; k<no_rot; k++)
+        -:  121:    {
+        -:  122:
+       10:  123:      SL[0] = cos(alpha_z[k])*cos(alpha_y[k]);
+       10:  124:      SL[1] = sin(alpha_z[k])*cos(alpha_y[k]);
+       10:  125:      SL[2] = sin(alpha_y[k]);
+       10:  126:      SL[3] = -cos(alpha_x[k])*sin(alpha_z[k])-sin(alpha_x[k])*sin(alpha_y[k])*cos(alpha_z[k]);
+       10:  127:      SL[4] = cos(alpha_z[k])*cos(alpha_x[k])-sin(alpha_x[k])*sin(alpha_y[k])*sin(alpha_z[k]);
+       10:  128:      SL[5] = sin(alpha_x[k])*cos(alpha_y[k]);
+       10:  129:      SL[6] = sin(alpha_x[k])*sin(alpha_z[k])-sin(alpha_y[k])*cos(alpha_x[k])*cos(alpha_z[k]);
+       10:  130:      SL[7] = -sin(alpha_x[k])*cos(alpha_z[k])-sin(alpha_y[k])*cos(alpha_x[k])*sin(alpha_z[k]);
+       10:  131:      SL[8] = cos(alpha_x[k])*cos(alpha_y[k]);
+        -:  132:
+        -:  133:
+     7370:  134:      for (a=0; a<M; a++)
+        -:  135:      {
+     7360:  136:          U_L[a] = SL[0]*x[a] + SL[1]*y[a] + SL[2]*z[a];
+     7360:  137:          V_L[a] = SL[3]*x[a] + SL[4]*y[a] + SL[5]*z[a];
+     7360:  138:          W_L[a] = SL[6]*x[a] + SL[7]*y[a] + SL[8]*z[a];
+        -:  139:
+        -:  140:      }
+        -:  141:
+     3610:  142:      for (o=0; o<pixel_n; o++)
+        -:  143:      {
+  1299600:  144:          for (p=0; p<pixel_n; p++)
+        -:  145:          {
+        -:  146:
+955152000:  147:              for(a=0; a<M; a++)
+        -:  148:              {
+        -:  149:                         
+3815424000:  150:                             Amp = Amp + cexp(2*PI*I* (Qx[o*pixel_n+p]*U_L[a] + Qy[o*pixel_n+p]*V_L[a] + Qz[o*pixel_n+p]*W_L[a]));
+        -:  151:                         
+        -:  152:              }
+        -:  153:                          
+  3888000:  154:                         Int_2D[o*pixel_n+p] = Int_2D[o*pixel_n+p] + (Amp* conj(Amp));
+  1296000:  155:                          Amp = 0;
+        -:  156:          }
+        -:  157:     }
+        -:  158:
+        -:  159:}
+        -:  160:
+        1:  161:fp = fopen("736atom10rots_june19_2.txt","w");
+        -:  162:
+        1:  163:if(fp==NULL)
+        -:  164:{
+    #####:  165:   printf("I couldn't open results.txt for writing.\n");
+    #####:  166:   exit(0);
+        -:  167:}
+        -:  168:
+      361:  169:for (a=0; a<pixel_n; a++)
+        -:  170:{
+        -:  171:
+   129960:  172:    for (b=0; b<pixel_n; b++)
+        -:  173:    {
+        -:  174:          
+   129600:  175:      fprintf(fp, "%f\t", Int_2D[a*pixel_n+b]/10);
+        -:  176:    }
+      360:  177:    fprintf(fp,"\n");
+        -:  178:
+        -:  179:}
+        -:  180:
+        -:  181:
+        1:  182:fclose(fp);
+        -:  183:
+        1:  184:time(&stop);
+        1:  185:diff = difftime(stop,start);
+        1:  186:printf("Intensity is averaged over # of rotations and Time elapsed is %f seconds\n", diff);
+        -:  187:
+        1:  188:free (detx);
+        1:  189:free(dety);
+        1:  190:free (alpha_x);
+        1:  191:free(alpha_y);
+        1:  192:free(alpha_z);
+        -:  193:
+        -:  194:
+        1:  195:    return 0;
+        -:  196:
+2864160000:  197:}

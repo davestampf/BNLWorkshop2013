@@ -1,0 +1,9 @@
+Sun Nov  3 22:33:00 EST 2013
+node08
+./a.out
+./a.out
+Intensity is averaged over # of rotations and Time elapsed is 12.000000 seconds
+
+real	0m12.125s
+user	0m8.983s
+sys	0m3.026s
